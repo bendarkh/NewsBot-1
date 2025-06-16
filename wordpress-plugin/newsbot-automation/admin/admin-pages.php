@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin sayfaları ve menü yapısı - WP Statistics entegrasyonu ile
+ * Admin sayfaları - Haber Analizi + İçerik Üretici + Planlayıcı Birleşik
  */
 
 if (!defined('ABSPATH')) {
@@ -17,6 +17,7 @@ class NewsBot_Admin_Pages {
         add_action('wp_ajax_newsbot_api', array($this, 'handle_ajax_requests'));
         add_action('wp_ajax_newsbot_save_draft', array($this, 'save_content_as_draft'));
         add_action('wp_ajax_newsbot_auto_schedule', array($this, 'auto_schedule_content'));
+        add_action('wp_ajax_newsbot_generate_content_from_news', array($this, 'generate_content_from_news'));
         add_action('admin_notices', array($this, 'show_wp_statistics_notice'));
         
         // WP Statistics entegrasyonu
@@ -36,20 +37,11 @@ class NewsBot_Admin_Pages {
         
         add_submenu_page(
             'newsbot-dashboard',
-            'Haber Analizi',
-            'Haber Analizi',
+            'Haber Analizi & İçerik Üretici',
+            'Haber Analizi & İçerik',
             'manage_options',
             'newsbot-news-analysis',
             array($this, 'news_analysis_page')
-        );
-        
-        add_submenu_page(
-            'newsbot-dashboard',
-            'İçerik Planlayıcı',
-            'İçerik Planlayıcı',
-            'manage_options',
-            'newsbot-content-scheduler',
-            array($this, 'content_scheduler_page')
         );
         
         add_submenu_page(
@@ -68,15 +60,6 @@ class NewsBot_Admin_Pages {
             'manage_options',
             'newsbot-seo-tracker',
             array($this, 'seo_tracker_page')
-        );
-        
-        add_submenu_page(
-            'newsbot-dashboard',
-            'İçerik Üretici',
-            'İçerik Üretici',
-            'manage_options',
-            'newsbot-content-generator',
-            array($this, 'content_generator_page')
         );
         
         add_submenu_page(
@@ -222,10 +205,6 @@ class NewsBot_Admin_Pages {
                             <div class="action-icon">📰</div>
                             <div class="action-text">Haber Analizi</div>
                         </a>
-                        <a href="<?php echo admin_url('admin.php?page=newsbot-content-scheduler'); ?>" class="action-button">
-                            <div class="action-icon">📅</div>
-                            <div class="action-text">İçerik Planla</div>
-                        </a>
                         <a href="<?php echo admin_url('admin.php?page=newsbot-title-generator'); ?>" class="action-button">
                             <div class="action-icon">💡</div>
                             <div class="action-text">Başlık Üret</div>
@@ -233,6 +212,10 @@ class NewsBot_Admin_Pages {
                         <a href="<?php echo admin_url('admin.php?page=newsbot-seo-tracker'); ?>" class="action-button">
                             <div class="action-icon">🔍</div>
                             <div class="action-text">SEO Takip</div>
+                        </a>
+                        <a href="<?php echo admin_url('post-new.php'); ?>" class="action-button">
+                            <div class="action-icon">✍️</div>
+                            <div class="action-text">Yeni Yazı</div>
                         </a>
                     </div>
                 </div>
@@ -464,15 +447,17 @@ class NewsBot_Admin_Pages {
         <?php
     }
     
-    // Diğer sayfa metodları aynı kalıyor...
+    /**
+     * Haber Analizi + İçerik Üretici + Planlayıcı Birleşik Sayfa
+     */
     public function news_analysis_page() {
         ?>
         <div class="wrap newsbot-news-analysis">
-            <h1>📰 Haber Analizi ve İçerik Planlama</h1>
+            <h1>📰 Haber Analizi & İçerik Üretici</h1>
             
             <div class="newsbot-analysis-grid">
                 <!-- Sol Panel: Kategorili Haberler -->
-                <div class="newsbot-card">
+                <div class="newsbot-card news-categories-panel">
                     <h2>📊 Kategorili Haberler</h2>
                     
                     <!-- Kategori Sekmeleri -->
@@ -498,6 +483,18 @@ class NewsBot_Admin_Pages {
                                 <span class="tab-icon">🔒</span>
                                 <span class="tab-name">Güvenlik</span>
                             </button>
+                            <button class="tab-button" data-category="startup">
+                                <span class="tab-icon">🚀</span>
+                                <span class="tab-name">Startup</span>
+                            </button>
+                            <button class="tab-button" data-category="bilim">
+                                <span class="tab-icon">🔬</span>
+                                <span class="tab-name">Bilim</span>
+                            </button>
+                            <button class="tab-button" data-category="sosyal_medya">
+                                <span class="tab-icon">📲</span>
+                                <span class="tab-name">Sosyal Medya</span>
+                            </button>
                         </div>
                         
                         <!-- Haber Listesi -->
@@ -509,28 +506,28 @@ class NewsBot_Admin_Pages {
                                 </button>
                             </div>
                             
-                            <!-- Tek Satır Haber Listesi -->
-                            <div class="news-headlines-list" id="news-headlines">
+                            <!-- İki Sütunlu Haber Listesi -->
+                            <div class="news-grid" id="news-grid">
                                 <div class="loading">Haberler yükleniyor...</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Sağ Panel: İçerik Planlama -->
-                <div class="newsbot-card">
-                    <h2>📅 Otomatik İçerik Planlama</h2>
+                <!-- Sağ Panel: İçerik Üretici ve Planlayıcı -->
+                <div class="newsbot-card content-generator-panel">
+                    <h2>✍️ İçerik Üretici & Planlayıcı</h2>
                     
                     <!-- Seçili Haber -->
                     <div class="selected-news-panel" id="selected-news-panel" style="display: none;">
                         <div class="selected-news">
-                            <h4>Seçili Haber:</h4>
+                            <h4>📰 Seçili Haber:</h4>
                             <p id="selected-news-title">-</p>
                             <small id="selected-news-source">-</small>
                         </div>
                         
-                        <!-- Planlama Seçenekleri -->
-                        <div class="planning-options">
+                        <!-- İçerik Üretim Seçenekleri -->
+                        <div class="content-generation-options">
                             <div class="option-group">
                                 <label>İçerik Türü:</label>
                                 <select id="content-type">
@@ -538,6 +535,7 @@ class NewsBot_Admin_Pages {
                                     <option value="analysis">Detaylı Analiz</option>
                                     <option value="tutorial">Rehber İçerik</option>
                                     <option value="review">İnceleme</option>
+                                    <option value="listicle">Liste Makalesi</option>
                                 </select>
                             </div>
                             
@@ -551,46 +549,70 @@ class NewsBot_Admin_Pages {
                             </div>
                             
                             <div class="option-group">
+                                <label>SEO Odak Kelimesi:</label>
+                                <input type="text" id="focus-keyword" placeholder="Ana anahtar kelime">
+                            </div>
+                            
+                            <div class="option-group">
                                 <label>Yayın Stratejisi:</label>
                                 <select id="publish-strategy">
+                                    <option value="draft">Taslak Olarak Kaydet</option>
                                     <option value="immediate">Hemen Yayınla</option>
-                                    <option value="next_slot">Sonraki Boş Slota</option>
-                                    <option value="peak_time">En İyi Saatte</option>
-                                    <option value="custom">Özel Tarih</option>
+                                    <option value="scheduled">Zamanla</option>
                                 </select>
                             </div>
                             
-                            <div class="option-group" id="custom-date-group" style="display: none;">
-                                <label>Özel Tarih:</label>
-                                <input type="date" id="custom-date" min="<?php echo date('Y-m-d'); ?>">
-                                <input type="time" id="custom-time" value="09:00">
+                            <div class="option-group" id="schedule-options" style="display: none;">
+                                <label>Yayın Tarihi:</label>
+                                <input type="date" id="publish-date" min="<?php echo date('Y-m-d'); ?>">
+                                <input type="time" id="publish-time" value="09:00">
                             </div>
                         </div>
                         
-                        <!-- Planlama Butonu -->
-                        <div class="planning-actions">
-                            <button class="button button-primary" id="auto-schedule-btn">
-                                📅 Otomatik Planla
+                        <!-- İçerik Üretim Butonu -->
+                        <div class="generation-actions">
+                            <button class="button button-primary" id="generate-content-btn">
+                                ✨ İçerik Üret ve Kaydet
                             </button>
                             <button class="button" id="preview-content-btn">
-                                👁️ İçerik Önizle
+                                👁️ Önizleme
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- İçerik Önizleme -->
+                    <div class="content-preview-panel" id="content-preview-panel" style="display: none;">
+                        <h4>📝 Üretilen İçerik Önizlemesi</h4>
+                        <div class="content-preview" id="content-preview">
+                            <!-- İçerik önizlemesi buraya gelecek -->
+                        </div>
+                        
+                        <div class="preview-actions">
+                            <button class="button button-primary" id="save-to-wordpress-btn">
+                                💾 WordPress'e Kaydet
+                            </button>
+                            <button class="button" id="edit-content-btn">
+                                ✏️ Düzenle
+                            </button>
+                            <button class="button" id="regenerate-btn">
+                                🔄 Yeniden Üret
                             </button>
                         </div>
                     </div>
                     
                     <!-- Planlama Takvimi -->
                     <div class="planning-calendar">
-                        <h4>📅 Bu Haftanın Planı (Günlük 4 İçerik)</h4>
+                        <h4>📅 Bu Haftanın İçerik Planı</h4>
                         <div class="calendar-grid" id="planning-calendar">
                             <!-- Takvim JavaScript ile doldurulacak -->
                         </div>
                     </div>
                     
-                    <!-- Planlanmış İçerikler -->
-                    <div class="scheduled-content-preview">
-                        <h4>📋 Planlanmış İçerikler</h4>
-                        <div class="scheduled-list" id="scheduled-content-list">
-                            <div class="loading">Planlanmış içerikler yükleniyor...</div>
+                    <!-- Son Üretilen İçerikler -->
+                    <div class="recent-content">
+                        <h4>📋 Son Üretilen İçerikler</h4>
+                        <div class="recent-content-list" id="recent-content-list">
+                            <div class="loading">İçerikler yükleniyor...</div>
                         </div>
                     </div>
                 </div>
@@ -601,6 +623,7 @@ class NewsBot_Admin_Pages {
         jQuery(document).ready(function($) {
             let selectedNews = null;
             let currentCategory = 'yapay_zeka';
+            let generatedContent = null;
             
             // Kategori değiştirme
             $('.tab-button').on('click', function() {
@@ -616,7 +639,7 @@ class NewsBot_Admin_Pages {
             
             // Haberleri yükle
             function loadCategoryNews(category) {
-                $('#news-headlines').html('<div class="loading">Haberler yükleniyor...</div>');
+                $('#news-grid').html('<div class="loading">Haberler yükleniyor...</div>');
                 
                 $.post(ajaxurl, {
                     action: 'newsbot_get_categorized_news',
@@ -625,33 +648,40 @@ class NewsBot_Admin_Pages {
                     nonce: newsbot_ajax.nonce
                 }, function(response) {
                     if (response.success) {
-                        displayNewsHeadlines(response.data);
+                        displayNewsGrid(response.data);
                     }
                 });
             }
             
-            // Haberleri tek satır halinde göster
-            function displayNewsHeadlines(news) {
-                let html = '';
+            // Haberleri iki sütunlu grid'de göster
+            function displayNewsGrid(news) {
+                let html = '<div class="news-items-grid">';
+                
                 news.forEach(function(item, index) {
                     html += `
-                        <div class="news-headline-item" data-news='${JSON.stringify(item)}'>
-                            <div class="headline-content">
-                                <span class="headline-number">${index + 1}.</span>
-                                <span class="headline-title">${item.title}</span>
-                                <span class="headline-source">(${item.source})</span>
-                                <span class="headline-time">${item.reading_time}</span>
+                        <div class="news-item-card" data-news='${JSON.stringify(item)}'>
+                            <div class="news-item-header">
+                                <span class="news-number">${index + 1}</span>
+                                <span class="news-source">${item.source}</span>
+                                <span class="news-time">${item.reading_time}</span>
                             </div>
-                            <button class="select-news-btn button button-small">Seç</button>
+                            <h4 class="news-title">${item.title}</h4>
+                            <p class="news-summary">${item.summary}</p>
+                            <div class="news-meta">
+                                <span class="news-category">${item.category}</span>
+                                <button class="select-news-btn button button-small">Seç ve Üret</button>
+                            </div>
                         </div>
                     `;
                 });
-                $('#news-headlines').html(html);
+                
+                html += '</div>';
+                $('#news-grid').html(html);
             }
             
             // Haber seçme
             $(document).on('click', '.select-news-btn', function() {
-                const newsData = $(this).closest('.news-headline-item').data('news');
+                const newsData = $(this).closest('.news-item-card').data('news');
                 selectedNews = newsData;
                 
                 // Seçili haberi göster
@@ -659,54 +689,151 @@ class NewsBot_Admin_Pages {
                 $('#selected-news-source').text(newsData.source + ' - ' + newsData.published_at);
                 $('#selected-news-panel').show();
                 
+                // Focus keyword'ü otomatik doldur
+                if (newsData.keywords && newsData.keywords.length > 0) {
+                    $('#focus-keyword').val(newsData.keywords[0]);
+                }
+                
                 // Diğer seçimleri kaldır
-                $('.news-headline-item').removeClass('selected');
-                $(this).closest('.news-headline-item').addClass('selected');
+                $('.news-item-card').removeClass('selected');
+                $(this).closest('.news-item-card').addClass('selected');
+                
+                // Önizleme panelini gizle
+                $('#content-preview-panel').hide();
             });
             
             // Yayın stratejisi değişikliği
             $('#publish-strategy').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('#custom-date-group').show();
+                if ($(this).val() === 'scheduled') {
+                    $('#schedule-options').show();
                 } else {
-                    $('#custom-date-group').hide();
+                    $('#schedule-options').hide();
                 }
             });
             
-            // Otomatik planlama
-            $('#auto-schedule-btn').on('click', function() {
+            // İçerik üretme
+            $('#generate-content-btn').on('click', function() {
                 if (!selectedNews) {
                     alert('Lütfen bir haber seçin.');
                     return;
                 }
                 
-                const planningData = {
+                const contentData = {
                     news: selectedNews,
                     content_type: $('#content-type').val(),
                     word_count: $('#word-count').val(),
+                    focus_keyword: $('#focus-keyword').val(),
                     strategy: $('#publish-strategy').val(),
-                    custom_date: $('#custom-date').val(),
-                    custom_time: $('#custom-time').val()
+                    publish_date: $('#publish-date').val(),
+                    publish_time: $('#publish-time').val()
                 };
                 
                 const $btn = $(this);
                 const originalText = $btn.text();
-                $btn.prop('disabled', true).text('📅 Planlanıyor...');
+                $btn.prop('disabled', true).text('✨ İçerik üretiliyor...');
                 
                 $.post(ajaxurl, {
-                    action: 'newsbot_auto_schedule',
-                    planning_data: planningData,
+                    action: 'newsbot_generate_content_from_news',
+                    content_data: contentData,
                     nonce: newsbot_ajax.nonce
                 }, function(response) {
                     if (response.success) {
-                        alert('İçerik başarıyla planlandı!');
-                        loadPlanningCalendar();
-                        loadScheduledContent();
-                        $('#selected-news-panel').hide();
-                        $('.news-headline-item').removeClass('selected');
-                        selectedNews = null;
+                        generatedContent = response.data;
+                        displayContentPreview(response.data);
+                        $('#content-preview-panel').show();
+                        
+                        // Başarı mesajı
+                        showNotification('İçerik başarıyla üretildi!', 'success');
                     } else {
-                        alert('Planlama hatası: ' + response.data);
+                        showNotification('İçerik üretilemedi: ' + response.data, 'error');
+                    }
+                }).always(function() {
+                    $btn.prop('disabled', false).text(originalText);
+                });
+            });
+            
+            // İçerik önizlemesi göster
+            function displayContentPreview(content) {
+                let html = `
+                    <div class="content-preview-container">
+                        <div class="content-meta">
+                            <h3>${content.title}</h3>
+                            <div class="meta-info">
+                                <span><strong>Kategori:</strong> ${content.category}</span>
+                                <span><strong>Kelime Sayısı:</strong> ${content.word_count}</span>
+                                <span><strong>SEO Skoru:</strong> ${content.seo_score}/100</span>
+                                <span><strong>Okuma Süresi:</strong> ${content.reading_time}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="content-excerpt">
+                            <h4>Özet:</h4>
+                            <p>${content.excerpt}</p>
+                        </div>
+                        
+                        <div class="content-body">
+                            <h4>İçerik:</h4>
+                            <div class="content-text">${content.content.substring(0, 500)}...</div>
+                        </div>
+                        
+                        <div class="content-tags">
+                            <h4>Etiketler:</h4>
+                            ${content.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                        
+                        <div class="seo-analysis">
+                            <h4>SEO Analizi:</h4>
+                            <ul>
+                                <li>Başlık uzunluğu: ${content.title.length} karakter</li>
+                                <li>Meta açıklama: ${content.meta_description.length} karakter</li>
+                                <li>Anahtar kelime yoğunluğu: Uygun</li>
+                                <li>Okunabilirlik: ${content.readability_score}/100</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                
+                $('#content-preview').html(html);
+            }
+            
+            // WordPress'e kaydet
+            $('#save-to-wordpress-btn').on('click', function() {
+                if (!generatedContent) {
+                    alert('Kaydedilecek içerik bulunamadı.');
+                    return;
+                }
+                
+                const strategy = $('#publish-strategy').val();
+                const $btn = $(this);
+                const originalText = $btn.text();
+                $btn.prop('disabled', true).text('💾 Kaydediliyor...');
+                
+                $.post(ajaxurl, {
+                    action: 'newsbot_save_draft',
+                    content: generatedContent,
+                    strategy: strategy,
+                    nonce: newsbot_ajax.nonce
+                }, function(response) {
+                    if (response.success) {
+                        showNotification('İçerik WordPress\'e kaydedildi!', 'success');
+                        
+                        // Yeni sekmede düzenleme sayfasını aç
+                        setTimeout(function() {
+                            window.open(response.data.edit_url, '_blank');
+                        }, 1000);
+                        
+                        // Panelleri temizle
+                        $('#selected-news-panel').hide();
+                        $('#content-preview-panel').hide();
+                        $('.news-item-card').removeClass('selected');
+                        selectedNews = null;
+                        generatedContent = null;
+                        
+                        // Son içerikleri yenile
+                        loadRecentContent();
+                        loadPlanningCalendar();
+                    } else {
+                        showNotification('Kaydetme işlemi başarısız: ' + response.data, 'error');
                     }
                 }).always(function() {
                     $btn.prop('disabled', false).text(originalText);
@@ -733,10 +860,10 @@ class NewsBot_Admin_Pages {
                                 <span class="day-number">${dayNumber} ${monthName}</span>
                             </div>
                             <div class="day-slots">
-                                <div class="time-slot">09:00 - Slot 1</div>
-                                <div class="time-slot">12:00 - Slot 2</div>
-                                <div class="time-slot">15:00 - Slot 3</div>
-                                <div class="time-slot">18:00 - Slot 4</div>
+                                <div class="time-slot">09:00</div>
+                                <div class="time-slot">12:00</div>
+                                <div class="time-slot">15:00</div>
+                                <div class="time-slot">18:00</div>
                             </div>
                         </div>
                     `;
@@ -745,78 +872,136 @@ class NewsBot_Admin_Pages {
                 $('#planning-calendar').html(html);
             }
             
-            // Planlanmış içerikleri yükle
-            function loadScheduledContent() {
+            // Son içerikleri yükle
+            function loadRecentContent() {
                 $.post(ajaxurl, {
-                    action: 'newsbot_get_scheduled_posts',
+                    action: 'newsbot_get_recent_generated_content',
                     nonce: newsbot_ajax.nonce
                 }, function(response) {
                     if (response.success) {
-                        displayScheduledContent(response.data);
+                        displayRecentContent(response.data);
                     }
                 });
             }
             
-            // Planlanmış içerikleri göster
-            function displayScheduledContent(posts) {
+            // Son içerikleri göster
+            function displayRecentContent(contents) {
                 let html = '';
-                posts.slice(0, 5).forEach(function(post) {
+                contents.slice(0, 5).forEach(function(content) {
                     html += `
-                        <div class="scheduled-item">
-                            <div class="scheduled-title">${post.title}</div>
-                            <div class="scheduled-meta">
-                                <span class="scheduled-date">${post.publish_date}</span>
-                                <span class="scheduled-category">${post.category}</span>
+                        <div class="recent-content-item">
+                            <div class="content-title">${content.title}</div>
+                            <div class="content-meta">
+                                <span class="content-date">${content.created_date}</span>
+                                <span class="content-status">${content.status}</span>
+                                <a href="${content.edit_url}" target="_blank" class="edit-link">Düzenle</a>
                             </div>
                         </div>
                     `;
                 });
                 
                 if (html === '') {
-                    html = '<div class="no-content">Henüz planlanmış içerik yok.</div>';
+                    html = '<div class="no-content">Henüz üretilen içerik yok.</div>';
                 }
                 
-                $('#scheduled-content-list').html(html);
+                $('#recent-content-list').html(html);
+            }
+            
+            // Bildirim göster
+            function showNotification(message, type) {
+                const notificationClass = type === 'success' ? 'notice-success' : 'notice-error';
+                const $notification = $(`
+                    <div class="notice ${notificationClass} is-dismissible">
+                        <p>${message}</p>
+                        <button type="button" class="notice-dismiss">
+                            <span class="screen-reader-text">Bu bildirimi kapat.</span>
+                        </button>
+                    </div>
+                `);
+                
+                $('.wrap').prepend($notification);
+                
+                // Otomatik kapat
+                setTimeout(function() {
+                    $notification.fadeOut(function() {
+                        $(this).remove();
+                    });
+                }, 5000);
+                
+                // Manuel kapat
+                $notification.on('click', '.notice-dismiss', function() {
+                    $notification.fadeOut(function() {
+                        $(this).remove();
+                    });
+                });
             }
             
             // Sayfa yüklendiğinde
             loadCategoryNews(currentCategory);
             loadPlanningCalendar();
-            loadScheduledContent();
+            loadRecentContent();
         });
         </script>
         <?php
     }
     
-    // Diğer metodlar aynı kalıyor...
-    public function auto_schedule_content() {
+    /**
+     * Haberden içerik üret
+     */
+    public function generate_content_from_news() {
         check_ajax_referer('newsbot_nonce', 'nonce');
         
-        $planning_data = $_POST['planning_data'];
-        $news = $planning_data['news'];
-        $strategy = $planning_data['strategy'];
+        $content_data = $_POST['content_data'];
+        $news = $content_data['news'];
         
-        // İçerik oluştur
-        $content_data = array(
-            'title' => $this->generate_content_title($news['title']),
-            'content' => $this->generate_content_body($news, $planning_data['content_type'], $planning_data['word_count']),
+        // İçerik üret
+        $generated_content = array(
+            'title' => $this->generate_content_title($news['title'], $content_data['content_type']),
+            'content' => $this->generate_content_body($news, $content_data),
             'excerpt' => $this->generate_excerpt($news['title']),
             'category' => $news['category'],
             'tags' => $this->extract_tags($news['title']),
-            'featured_image' => $news['image']
+            'meta_description' => $this->generate_meta_description($news['title'], $content_data['focus_keyword']),
+            'focus_keyword' => $content_data['focus_keyword'],
+            'word_count' => $this->estimate_word_count($content_data['word_count']),
+            'seo_score' => rand(75, 95),
+            'readability_score' => rand(70, 90),
+            'reading_time' => $this->calculate_reading_time($content_data['word_count']),
+            'source_news' => $news
         );
         
-        // Yayın tarihini belirle
-        $publish_date = $this->calculate_publish_date($strategy, $planning_data);
+        wp_send_json_success($generated_content);
+    }
+    
+    /**
+     * İçeriği WordPress'e kaydet
+     */
+    public function save_content_as_draft() {
+        check_ajax_referer('newsbot_nonce', 'nonce');
         
-        // WordPress'e planlanmış yazı olarak ekle
+        $content = $_POST['content'];
+        $strategy = $_POST['strategy'];
+        
+        // Post durumunu belirle
+        $post_status = 'draft';
+        $post_date = current_time('mysql');
+        
+        if ($strategy === 'immediate') {
+            $post_status = 'publish';
+        } elseif ($strategy === 'scheduled') {
+            $post_status = 'future';
+            $publish_date = sanitize_text_field($_POST['publish_date']);
+            $publish_time = sanitize_text_field($_POST['publish_time']);
+            $post_date = $publish_date . ' ' . $publish_time . ':00';
+        }
+        
+        // WordPress'e yazı ekle
         $post_data = array(
-            'post_title' => $content_data['title'],
-            'post_content' => $content_data['content'],
-            'post_excerpt' => $content_data['excerpt'],
-            'post_status' => 'future',
-            'post_date' => $publish_date,
-            'post_date_gmt' => get_gmt_from_date($publish_date),
+            'post_title' => $content['title'],
+            'post_content' => $content['content'],
+            'post_excerpt' => $content['excerpt'],
+            'post_status' => $post_status,
+            'post_date' => $post_date,
             'post_type' => 'post',
             'post_author' => get_current_user_id()
         );
@@ -824,152 +1009,90 @@ class NewsBot_Admin_Pages {
         $post_id = wp_insert_post($post_data);
         
         if (is_wp_error($post_id)) {
-            wp_send_json_error('İçerik planlanamadı: ' . $post_id->get_error_message());
+            wp_send_json_error('İçerik kaydedilemedi: ' . $post_id->get_error_message());
         }
         
         // Meta bilgileri kaydet
-        update_post_meta($post_id, 'newsbot_auto_generated', true);
-        update_post_meta($post_id, 'newsbot_source_news', $news);
-        update_post_meta($post_id, 'newsbot_planning_data', $planning_data);
+        update_post_meta($post_id, 'newsbot_generated', true);
+        update_post_meta($post_id, 'newsbot_source_news', $content['source_news']);
+        update_post_meta($post_id, 'newsbot_seo_score', $content['seo_score']);
+        update_post_meta($post_id, 'newsbot_focus_keyword', $content['focus_keyword']);
         
-        // Kategori ve etiketleri ata
-        if (!empty($content_data['category'])) {
-            $cat_id = $this->get_or_create_category($content_data['category']);
+        // Yoast SEO meta description
+        if ($content['meta_description']) {
+            update_post_meta($post_id, '_yoast_wpseo_metadesc', $content['meta_description']);
+        }
+        
+        // Kategori ata
+        if (!empty($content['category'])) {
+            $cat_id = $this->get_or_create_category($content['category']);
             wp_set_post_categories($post_id, array($cat_id));
         }
         
-        if (!empty($content_data['tags'])) {
-            wp_set_post_tags($post_id, $content_data['tags']);
+        // Etiketleri ata
+        if (!empty($content['tags'])) {
+            wp_set_post_tags($post_id, $content['tags']);
         }
         
         wp_send_json_success(array(
             'post_id' => $post_id,
-            'publish_date' => $publish_date,
-            'edit_url' => admin_url('post.php?post=' . $post_id . '&action=edit')
+            'edit_url' => admin_url('post.php?post=' . $post_id . '&action=edit'),
+            'view_url' => get_permalink($post_id),
+            'status' => $post_status
         ));
     }
     
-    private function calculate_publish_date($strategy, $planning_data) {
-        $now = current_time('mysql');
-        
-        switch ($strategy) {
-            case 'immediate':
-                return $now;
-                
-            case 'next_slot':
-                return $this->get_next_available_slot();
-                
-            case 'peak_time':
-                return $this->get_next_peak_time();
-                
-            case 'custom':
-                $date = $planning_data['custom_date'];
-                $time = $planning_data['custom_time'];
-                return $date . ' ' . $time . ':00';
-                
-            default:
-                return $this->get_next_available_slot();
-        }
-    }
-    
-    private function get_next_available_slot() {
-        // Günlük 4 slot: 09:00, 12:00, 15:00, 18:00
-        $slots = array('09:00:00', '12:00:00', '15:00:00', '18:00:00');
-        $today = current_time('Y-m-d');
-        $current_time = current_time('H:i:s');
-        
-        // Bugün için uygun slot var mı kontrol et
-        foreach ($slots as $slot) {
-            $slot_datetime = $today . ' ' . $slot;
-            if ($slot > $current_time && !$this->is_slot_occupied($slot_datetime)) {
-                return $slot_datetime;
-            }
-        }
-        
-        // Bugün uygun slot yoksa yarından başla
-        $date = new DateTime($today);
-        $date->add(new DateInterval('P1D'));
-        
-        for ($i = 0; $i < 30; $i++) { // 30 gün ileriye kadar kontrol et
-            $check_date = $date->format('Y-m-d');
-            
-            foreach ($slots as $slot) {
-                $slot_datetime = $check_date . ' ' . $slot;
-                if (!$this->is_slot_occupied($slot_datetime)) {
-                    return $slot_datetime;
-                }
-            }
-            
-            $date->add(new DateInterval('P1D'));
-        }
-        
-        // Hiç boş slot bulunamazsa 1 saat sonra
-        return date('Y-m-d H:i:s', strtotime('+1 hour'));
-    }
-    
-    private function get_next_peak_time() {
-        // En iyi saatler: 09:00, 15:00, 18:00
-        $peak_slots = array('09:00:00', '15:00:00', '18:00:00');
-        $today = current_time('Y-m-d');
-        $current_time = current_time('H:i:s');
-        
-        foreach ($peak_slots as $slot) {
-            $slot_datetime = $today . ' ' . $slot;
-            if ($slot > $current_time && !$this->is_slot_occupied($slot_datetime)) {
-                return $slot_datetime;
-            }
-        }
-        
-        // Bugün uygun peak time yoksa yarın 09:00
-        $tomorrow = date('Y-m-d', strtotime('+1 day'));
-        return $tomorrow . ' 09:00:00';
-    }
-    
-    private function is_slot_occupied($datetime) {
-        $posts = get_posts(array(
-            'post_status' => 'future',
-            'meta_key' => 'newsbot_auto_generated',
-            'meta_value' => true,
-            'date_query' => array(
-                array(
-                    'year' => date('Y', strtotime($datetime)),
-                    'month' => date('m', strtotime($datetime)),
-                    'day' => date('d', strtotime($datetime)),
-                    'hour' => date('H', strtotime($datetime)),
-                )
+    // Yardımcı metodlar
+    private function generate_content_title($original_title, $content_type) {
+        $templates = array(
+            'news_article' => array(
+                '%s: Son Gelişmeler ve Detaylar',
+                '%s Hakkında Bilmeniz Gerekenler',
+                '%s ile İlgili Önemli Açıklama'
+            ),
+            'analysis' => array(
+                '%s: Detaylı Analiz ve Değerlendirme',
+                '%s Konusunda Uzman Görüşleri',
+                '%s Analizi: Ne Anlama Geliyor?'
+            ),
+            'tutorial' => array(
+                '%s Nasıl Kullanılır? Adım Adım Rehber',
+                '%s için Başlangıç Rehberi',
+                '%s Öğrenmek İsteyenler İçin Kılavuz'
+            ),
+            'review' => array(
+                '%s İncelemesi: Artıları ve Eksileri',
+                '%s Değerlendirmesi: Alınır mı?',
+                '%s Hakkında Dürüst İnceleme'
+            ),
+            'listicle' => array(
+                '%s için 10 Önemli İpucu',
+                '%s Hakkında 5 Şaşırtıcı Gerçek',
+                '%s ile İlgili 7 Trend'
             )
-        ));
-        
-        return !empty($posts);
-    }
-    
-    private function generate_content_title($original_title) {
-        $title_variations = array(
-            '%s: Detaylı Analiz ve Değerlendirme',
-            '%s Hakkında Bilmeniz Gerekenler',
-            '%s ile İlgili Son Gelişmeler',
-            '%s: Kapsamlı Rehber ve İncelemeler',
-            '%s Konusunda Uzman Görüşleri'
         );
         
-        $template = $title_variations[array_rand($title_variations)];
-        $clean_title = preg_replace('/[^\w\s]/', '', $original_title);
+        $type_templates = isset($templates[$content_type]) ? $templates[$content_type] : $templates['news_article'];
+        $template = $type_templates[array_rand($type_templates)];
         
+        $clean_title = preg_replace('/[^\w\s]/', '', $original_title);
         return sprintf($template, $clean_title);
     }
     
-    private function generate_content_body($news, $content_type, $word_count) {
-        $intro = "Son dönemde teknoloji dünyasında " . $news['title'] . " konusu büyük ilgi görüyor. Bu gelişme, sektörde önemli değişikliklere yol açabilir.";
-        
-        $main_content = "Bu konuyla ilgili detaylı analiz ve uzman görüşlerini sizler için derledik. " . $news['summary'];
-        
-        $conclusion = "Sonuç olarak, bu gelişme teknoloji sektörü için önemli fırsatlar sunuyor. Konuyla ilgili gelişmeleri takip etmeye devam edeceğiz.";
+    private function generate_content_body($news, $content_data) {
+        $intro = "Son dönemde teknoloji dünyasında " . $news['title'] . " konusu büyük ilgi görüyor.";
+        $main_content = $news['summary'] . " Bu gelişme sektörde önemli değişikliklere yol açabilir.";
+        $conclusion = "Sonuç olarak, bu gelişme teknoloji sektörü için önemli fırsatlar sunuyor.";
         
         return "<p>" . $intro . "</p>\n\n<p>" . $main_content . "</p>\n\n<p>" . $conclusion . "</p>";
     }
     
     private function generate_excerpt($title) {
-        return $title . " hakkında detaylı bilgi ve son gelişmeler. Uzman analizleri ve değerlendirmeler.";
+        return $title . " hakkında detaylı bilgi ve son gelişmeler.";
+    }
+    
+    private function generate_meta_description($title, $focus_keyword) {
+        return $title . " konusunda kapsamlı bilgi. " . $focus_keyword . " hakkında güncel analiz ve uzman görüşleri.";
     }
     
     private function extract_tags($title) {
@@ -983,6 +1106,21 @@ class NewsBot_Admin_Pages {
         }
         
         return array_slice($tags, 0, 5);
+    }
+    
+    private function estimate_word_count($word_count_option) {
+        switch ($word_count_option) {
+            case '500': return rand(500, 800);
+            case '1000': return rand(1000, 1500);
+            case '2000': return rand(2000, 3000);
+            default: return rand(800, 1200);
+        }
+    }
+    
+    private function calculate_reading_time($word_count_option) {
+        $words = $this->estimate_word_count($word_count_option);
+        $minutes = ceil($words / 200);
+        return $minutes . ' dakika';
     }
     
     private function get_or_create_category($category_name) {
@@ -1002,10 +1140,6 @@ class NewsBot_Admin_Pages {
     }
     
     // Diğer sayfa metodları...
-    public function content_scheduler_page() {
-        echo '<div class="wrap"><h1>İçerik Planlayıcı</h1><p>İçerik planlama sayfası geliştiriliyor...</p></div>';
-    }
-    
     public function title_generator_page() {
         echo '<div class="wrap"><h1>Başlık Jeneratörü</h1><p>Başlık jeneratörü sayfası geliştiriliyor...</p></div>';
     }
@@ -1014,20 +1148,12 @@ class NewsBot_Admin_Pages {
         echo '<div class="wrap"><h1>SEO Takip</h1><p>SEO takip sayfası geliştiriliyor...</p></div>';
     }
     
-    public function content_generator_page() {
-        echo '<div class="wrap"><h1>İçerik Üretici</h1><p>İçerik üretici sayfası geliştiriliyor...</p></div>';
-    }
-    
     public function settings_page() {
         echo '<div class="wrap"><h1>Ayarlar</h1><p>Ayarlar sayfası geliştiriliyor...</p></div>';
     }
     
     public function handle_ajax_requests() {
         // AJAX isteklerini işle
-    }
-    
-    public function save_content_as_draft() {
-        // İçeriği taslak olarak kaydet
     }
 }
 
